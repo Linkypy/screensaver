@@ -4,66 +4,87 @@ using UnityEngine;
 
 public class createPipe : MonoBehaviour
 {
-    public GameObject pipe; // pipe prefab
-    public int maxSegments = 100; // max amount of segments
+    public float speedMovement = 5;
+    public float speedSteer = 150;
+    public float speedBody = 5;
 
-    private List<GameObject> pipeSegments = new List<GameObject>(); // list of created pipe segments
-    private Vector3 currentPos; // current Position
+    public GameObject pipe; //Prefab Rohr
+    public GameObject ball; //Prefab Kugelverbindung
+    private List<GameObject> pipeSegments = new List<GameObject>();
+    private List<Vector3> PositionHistory = new List<Vector3>();
 
+    public int Gap = 120;
+
+    //public GameObject magicBall;
+   // Rigidbody rb;
+
+    /*void Awake()
+    {
+        rb = GetComponent<Rigidbody>();
+    }*/
+
+    // Start is called before the first frame update
     void Start()
     {
-        currentPos = transform.position; // starting position of pipe
-        GeneratePipes();
+        //InvokeRepeating("SpawnIt", 1f, 5f); //alle 5s kommt ein neuer MagicBall dazu
+        Cursor.lockState = CursorLockMode.Confined;       
+
     }
 
-    void GeneratePipes()
+    // Update is called once per frame
+    void Update()
     {
-        for (int i = 0; i < maxSegments; i++)
+        //vorwärts bewegen
+        transform.position += transform.right * speedMovement * Time.deltaTime;
+
+        //Steuerung, nach rechts und links rotieren
+        float directionSteer = Input.GetAxis("Horizontal");
+        transform.Rotate(Vector3.up * directionSteer * speedSteer * Time.deltaTime);
+
+        //Positionen speichern
+        PositionHistory.Insert(0, transform.position);
+
+        //Rohrsegmente positionieren/bewegen an vorherige Position des Rohrs anhängen
+        int index = 0;
+        foreach (var p in pipeSegments)
         {
-            Vector3 nextDirection = GetRandomDirection(); // Zufällige Richtung wählen
-            Vector3 nextPos = currentPos + nextDirection;
+            Vector3 point = PositionHistory[Mathf.Clamp(index * Gap, 0, PositionHistory.Count - 1)];
 
-            // Prüfen, ob die neue Position bereits ein anderes Rohrsegment hat oder außerhalb des Raums liegt
-            if (!HasPipeAtPosition(nextPos) && IsWithinRoom(nextPos))
-            {
-                GameObject newPipe = Instantiate(pipe, nextPos, Quaternion.identity);
-                newPipe.GetComponent<Renderer>().material.color = GetRandomColor(); // Zufällige Farbe setzen
+            Vector3 moveDirection = point - p.transform.position;
+            p.transform.position += moveDirection * speedBody * Time.deltaTime;
 
-                pipeSegments.Add(newPipe); // Rohrsegment zur Liste hinzufügen
-                currentPos = nextPos; // Aktuelle Position aktualisieren
-            }
-            else
-            {
-                // change direction if dead end got detected
-                nextDirection = GetRandomDirection();
-            }
+            p.transform.LookAt(point);
+
+            index++;
         }
     }
 
-    Vector3 GetRandomDirection()
+    //Teile vom Rohr hinzufügen
+    public void PipeAddition()
     {
-        return Vector3.forward; // still to do: implement random direction
+        GameObject segment = Instantiate(pipe);
+        pipeSegments.Add(segment); //Prefab zur Liste beifügen
     }
 
-    bool HasPipeAtPosition(Vector3 position)
+    /*void SpawnIt()
     {
-        foreach (GameObject segment in pipeSegments)
+        //zufällige Positionierung des Spawnpoints für die MagicBalls
+        float randomX = Random.Range(-9, 9);
+        float randomZ = Random.Range(-9, 9);
+
+        Vector3 randomPos = new Vector3(randomX, 0f, randomZ);
+        Instantiate(magicBall, randomPos, Quaternion.identity); //MagicBall wird erzeugt
+    }*/
+
+    //falls Rohr mit Wand kollidiert
+    //wird sie wieder auf Startpunkt positioniert
+    void OnCollisionEnter(UnityEngine.Collision collision)
+    {
+        if (collision.gameObject.CompareTag("Wall"))
         {
-            if (Vector3.Distance(segment.transform.position, position) < 0.1f)
-            {
-                return true;
-            }
+            //rb.velocity = Vector3.zero;
+            transform.position = Vector3.zero;
+            Debug.Log("Hit it");
         }
-        return false;
-    }
-
-    bool IsWithinRoom(Vector3 position)
-    {
-        return true; 
-    }
-
-    Color GetRandomColor()
-    {
-        return new Color(Random.value, Random.value, Random.value); // generate random colors for pipes
     }
 }
